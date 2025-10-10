@@ -29,6 +29,16 @@ export function useBinding({
 
   useLayoutEffect(() => {
     binding.child = rootView
+
+    // Store active binding for debugging (dev only)
+    if (process.env.NODE_ENV === 'development') {
+      setTimeout(() => {
+        if (binding.child && rootView.firstChild) {
+          (window as any).activeBinding = { binding, rootView }
+        }
+      }, 100)
+    }
+
     return () => {
       binding.child = undefined
     }

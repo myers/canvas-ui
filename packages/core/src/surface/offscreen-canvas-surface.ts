@@ -5,6 +5,11 @@ import { CrossPlatformCanvasElement, CrossPlatformOffscreenCanvas, PlatformAdapt
 import { Surface } from './surface'
 import { SurfaceFrame } from './surface-frame'
 
+export interface OffscreenCanvasSurfaceOptions {
+  canvas?: CrossPlatformOffscreenCanvas | CrossPlatformCanvasElement
+  canvasRef?: { current: CrossPlatformOffscreenCanvas | CrossPlatformCanvasElement | undefined }
+}
+
 export class OffscreenCanvasSurface implements Surface {
 
   private _canvas?: Canvas
@@ -14,6 +19,16 @@ export class OffscreenCanvasSurface implements Surface {
   private el?: CrossPlatformOffscreenCanvas | CrossPlatformCanvasElement
 
   private prevFrame?: SurfaceFrame
+
+  private canvasRef?: { current: CrossPlatformOffscreenCanvas | CrossPlatformCanvasElement | undefined }
+
+  constructor(options?: OffscreenCanvasSurfaceOptions) {
+    // If canvas is provided directly, use it
+    if (options?.canvas) {
+      this.el = options.canvas
+    }
+    this.canvasRef = options?.canvasRef
+  }
 
   acquireFrame(size: Size): SurfaceFrame {
 
@@ -40,6 +55,11 @@ export class OffscreenCanvasSurface implements Surface {
       this.el = PlatformAdapter.supportOffscreenCanvas
         ? PlatformAdapter.createOffscreenCanvas(size.width, size.height)
         : PlatformAdapter.createCanvas(size.width, size.height)
+
+      // Assign to ref if provided
+      if (this.canvasRef) {
+        this.canvasRef.current = this.el
+      }
 
     } else {
       const shouldResizeCanvas =

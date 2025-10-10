@@ -75,7 +75,8 @@ export class SyntheticEventManager {
     if (wheelEvent) {
       this.handleWheelEvent(wheelEvent)
     } else {
-      this.handlePointerEvents(this.binding.flushPointerEvents())
+      const pointerEvents = this.binding.flushPointerEvents()
+      this.handlePointerEvents(pointerEvents)
     }
   }
 
@@ -108,8 +109,8 @@ export class SyntheticEventManager {
   }
 
   private handlePointerEvents(pointerEvents: NativePointerEvents) {
-    for (const pointerId in pointerEvents) {
 
+    for (const pointerId in pointerEvents) {
       const {
         pointermove,
         pointerdown,
@@ -222,14 +223,18 @@ export class SyntheticEventManager {
         primaryPointerState.isPointerDown = true
         primaryPointerState.position = Point.fromXY(pointerdown.offsetX, pointerdown.offsetY)
         assert(this.rootNode)
+
         const result = this.rootNode.hitTestFromRoot(primaryPointerState.position)
+
         primaryPointerState.path = result.path.map(it => it.target)
         primaryPointerState.offset = result.path[0].position
+
         const event = this.createSyntheticPointerEvent(
           'pointerdown',
           pointerdown,
           primaryPointerState,
         )
+
         this.dispatchEvent(event)
       }
 

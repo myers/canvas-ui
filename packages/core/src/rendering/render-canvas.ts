@@ -40,9 +40,22 @@ export class RenderCanvas
   }
 
   private frameDirty = false
+  private _offscreenCanvas?: OffscreenCanvas
 
-  constructor() {
+  constructor(canvas?: HTMLCanvasElement | OffscreenCanvas) {
     super()
+
+    // Store the canvas based on its type
+    if (canvas) {
+      if (canvas instanceof OffscreenCanvas) {
+        // OffscreenCanvas
+        this._offscreenCanvas = canvas
+      } else {
+        // Assume HTMLCanvasElement (default)
+        this._el = canvas as HTMLCanvasElement
+      }
+    }
+    // If no canvas provided, el will be set later via the el setter (DOM flow)
     this.pipeline = new RenderPipeline(this.handleRequestVisualUpdate)
     this.pipeline.rootNode = this
     const clearHandleEvents = PlatformAdapter.onFrame(this.handleNativeEvents)
@@ -100,10 +113,22 @@ export class RenderCanvas
   private _rasterizer?: Rasterizer
 
   private get surface() {
+    if (this._surface) {
+      return this._surface
+    }
+
+    // OffscreenCanvas path
+    if (this._offscreenCanvas) {
+      return this._surface = Surface.makeOffscreenCanvasSurface({
+        canvas: this._offscreenCanvas
+      })
+    }
+
+    // DOM canvas path (default behavior)
     if (!this.el) {
       return undefined
     }
-    return this._surface ??= Surface.makeCanvasSurface({ el: this.el })
+    return this._surface = Surface.makeCanvasSurface({ el: this.el })
   }
   private _surface?: Surface
 
@@ -127,8 +152,7 @@ export class RenderCanvas
   }
   private _el?: CrossPlatformCanvasElement
 
-  private drawFrame = () => {
-
+  drawFrame = () => {
     // enterFrame 不受 frameDirty 控制
     this.pipeline.flushEnterFrame()
 
