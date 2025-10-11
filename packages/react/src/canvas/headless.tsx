@@ -1,9 +1,9 @@
-import { createElement, RenderCanvas, SyntheticEventManager, PlatformAdapter, BridgeEventBinding } from '@canvas-ui/core'
+import { createElement, SyntheticEventManager, BridgeEventBinding, IPlatformAdapter } from '@canvas-ui/core'
 import { ReactNode, useLayoutEffect, useState, useRef } from 'react'
 import { useBinding } from './binding'
 
 export type InjectEventFn = (
-  type: 'pointermove' | 'pointerdown' | 'pointerup' | 'pointerover' | 'pointerleave',
+  type: 'pointermove' | 'pointerdown' | 'pointerup' | 'pointerenter' | 'pointerleave',
   x: number,
   y: number,
   button?: number,
@@ -23,13 +23,14 @@ export interface HeadlessCanvasProps {
   width: number
   height: number
   dpr?: number
+  platformAdapter: IPlatformAdapter  // Required - custom platform adapter
   children: ReactNode
   onReady?: (api: {
     canvas: OffscreenCanvas
     injectEvent: InjectEventFn
     injectWheelEvent: InjectWheelEventFn
-    renderCanvas: RenderCanvas
   }) => void
+  onFrameEnd?: () => void  // Called when Canvas UI completes rendering
 }
 
 /**
@@ -62,15 +63,17 @@ export function HeadlessCanvas({
   width,
   height,
   dpr = 1,
+  platformAdapter,
   children,
-  onReady
+  onReady,
+  onFrameEnd
 }: HeadlessCanvasProps) {
   const onReadyCalledRef = useRef(false)
 
   // Initialize RenderCanvas and BridgeEventBinding once using useState
   const [instances] = useState(() => {
-    // Create RenderCanvas with the user-provided OffscreenCanvas
-    const renderCanvas = createElement('Canvas', canvas)
+    // Create RenderCanvas with the user-provided OffscreenCanvas and custom platformAdapter
+    const renderCanvas = createElement('Canvas', canvas, platformAdapter)
     renderCanvas.prepareInitialFrame()
     renderCanvas.dpr = dpr
     renderCanvas.size = { width, height }
@@ -82,11 +85,6 @@ export function HeadlessCanvas({
     const eventManager = SyntheticEventManager.findInstance(renderCanvas as any)
     if (eventManager) {
       eventManager.binding = bridgeBinding
-
-      // Set onEvents callback to schedule frame (same as DOMEventBinding)
-      bridgeBinding.onEvents = () => {
-        PlatformAdapter.scheduleFrame()
-      }
     } else {
       console.error('[HeadlessCanvas] No SyntheticEventManager found!')
     }
@@ -101,11 +99,36 @@ export function HeadlessCanvas({
       bridgeBinding.injectWheelEvent(x, y, deltaX, deltaY, deltaMode)
     }
 
-    return { renderCanvas, injectEvent, injectWheelEvent }
+    return { renderCanvas, bridgeBinding, injectEvent, injectWheelEvent }
   })
 
-  const { renderCanvas, injectEvent, injectWheelEvent } = instances
+  const { renderCanvas, bridgeBinding, injectEvent, injectWheelEvent } = instances
   const binding = renderCanvas
+
+  // Set onEvents callback to schedule frame on our custom adapter
+  useLayoutEffect(() => {
+    bridgeBinding.onEvents = () => {
+      platformAdapter.scheduleFrame()
+    }
+
+    return () => {
+      bridgeBinding.onEvents = undefined
+    }
+  }, [platformAdapter, bridgeBinding])
+
+  // Forward frameEnd events to onFrameEnd prop
+  useLayoutEffect(() => {
+    if (!onFrameEnd) return
+
+    const handleFrameEnd = () => {
+      onFrameEnd()
+    }
+
+    renderCanvas.addEventListener('frameEnd', handleFrameEnd)
+    return () => {
+      renderCanvas.removeEventListener('frameEnd', handleFrameEnd)
+    }
+  }, [renderCanvas, onFrameEnd])
 
   // Update size and dpr if changed
   useLayoutEffect(() => {
@@ -118,10 +141,10 @@ export function HeadlessCanvas({
   // Call onReady when ready
   useLayoutEffect(() => {
     if (onReady && !onReadyCalledRef.current) {
-      onReady({ canvas, injectEvent, injectWheelEvent, renderCanvas })
+      onReady({ canvas, injectEvent, injectWheelEvent })
       onReadyCalledRef.current = true
     }
-  }, [onReady, canvas, injectEvent, injectWheelEvent, renderCanvas])
+  }, [onReady, canvas, injectEvent, injectWheelEvent])
 
   // Use Canvas UI's binding hook for React reconciliation
   useBinding({

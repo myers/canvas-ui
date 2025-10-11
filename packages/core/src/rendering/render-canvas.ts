@@ -8,7 +8,7 @@ import {
   SyntheticPointerEvent
 } from '../events'
 import { Matrix, MutableMatrix, Point, Size } from '../math'
-import type { CrossPlatformCanvasElement } from '../platform'
+import type { CrossPlatformCanvasElement, IPlatformAdapter } from '../platform'
 import { PlatformAdapter } from '../platform'
 import { Surface } from '../surface'
 import { HitTestEntry, HitTestResult } from './hit-test'
@@ -34,16 +34,21 @@ export class RenderCanvas
 
   private nativeEventBinding: DOMEventBinding
 
+  private platformAdapter: IPlatformAdapter
+
   private handleRequestVisualUpdate = () => {
     this.frameDirty = true
-    PlatformAdapter.scheduleFrame()
+    this.platformAdapter.scheduleFrame()
   }
 
   private frameDirty = false
   private _offscreenCanvas?: OffscreenCanvas
 
-  constructor(canvas?: HTMLCanvasElement | OffscreenCanvas) {
+  constructor(canvas?: HTMLCanvasElement | OffscreenCanvas, platformAdapter?: IPlatformAdapter) {
     super()
+
+    // Store platform adapter (use provided or default to global)
+    this.platformAdapter = platformAdapter ?? PlatformAdapter
 
     // Store the canvas based on its type
     if (canvas) {
@@ -58,15 +63,15 @@ export class RenderCanvas
     // If no canvas provided, el will be set later via the el setter (DOM flow)
     this.pipeline = new RenderPipeline(this.handleRequestVisualUpdate)
     this.pipeline.rootNode = this
-    const clearHandleEvents = PlatformAdapter.onFrame(this.handleNativeEvents)
-    const clearDrawFrame = PlatformAdapter.onFrame(this.drawFrame)
+    const clearHandleEvents = this.platformAdapter.onFrame(this.handleNativeEvents)
+    const clearDrawFrame = this.platformAdapter.onFrame(this.drawFrame)
     this.clearOnFrame = () => {
       clearHandleEvents()
       clearDrawFrame()
     }
     this.nativeEventBinding = new DOMEventBinding()
     this.nativeEventBinding.onEvents = () => {
-      PlatformAdapter.scheduleFrame()
+      this.platformAdapter.scheduleFrame()
     }
     this.eventManager = new SyntheticEventManager()
     this.eventManager.rootNode = this
@@ -160,12 +165,14 @@ export class RenderCanvas
       return
     }
 
+    // Clear the dirty flag BEFORE running the pipeline
+    // This is the standard dirty flag pattern - if anything marks dirty during
+    // the pipeline (e.g. React component updates), it will stay dirty for the next frame
+    this.frameDirty = false
+
     this.pipeline.flushLayout()
     this.pipeline.flushNeedsCompositing()
     this.pipeline.flushPaint()
-
-    // 在 flush 途中仍会产生新的 frameDirty，所以我们在最后标记
-    this.frameDirty = false
 
     this.composeFrame()
     this.dispatchFrameEnd()
@@ -176,6 +183,7 @@ export class RenderCanvas
       rasterizer,
       _layer: rootLayer
     } = this
+
     // 没有 rasterizer 则跳过合成阶段
     if (!rasterizer) {
       return
@@ -184,6 +192,7 @@ export class RenderCanvas
     const layerTree = new LayerTree({
       rootLayer
     })
+
     rasterizer.draw(layerTree, Size.scale(this._size, this._dpr))
   }
 
