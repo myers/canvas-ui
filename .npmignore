@@ -1,0 +1,3 @@
+# Include built artifacts for npm/GitHub installation
+!dist
+!packages/*/dist
