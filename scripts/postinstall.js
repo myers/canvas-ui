@@ -21,13 +21,37 @@ function log(message) {
 function createPackageSymlinks() {
   log('Creating symlinks for Canvas-UI packages...')
 
-  // We're in node_modules/@canvas-ui/root
-  // Need to create symlinks in node_modules/@canvas-ui/
-  const canvasUiDir = path.resolve(cwd, '..')
+  // We're in: node_modules/.pnpm/@canvas-ui+root@.../node_modules/@canvas-ui/root
+  // Need to create symlinks in: node_modules/@canvas-ui/ (top-level, not in .pnpm)
+
+  // Find the consuming project's top-level node_modules directory
+  let topLevelNodeModules = cwd
+  if (cwd.includes('node_modules/.pnpm/')) {
+    // Extract path before .pnpm
+    const pnpmIndex = cwd.indexOf('node_modules/.pnpm/')
+    topLevelNodeModules = cwd.substring(0, pnpmIndex + 'node_modules'.length)
+  } else {
+    // Fallback: go up until we find the root node_modules
+    topLevelNodeModules = path.resolve(cwd, '../../..')
+  }
+
+  const canvasUiDir = path.join(topLevelNodeModules, '@canvas-ui')
+  log(`Top-level node_modules: ${topLevelNodeModules}`)
+  log(`Target @canvas-ui directory: ${canvasUiDir}`)
+
+  // Ensure the @canvas-ui directory exists
+  try {
+    mkdirSync(canvasUiDir, { recursive: true })
+  } catch (e) {
+    log(`Directory already exists or error creating: ${e.message}`)
+  }
+
   const packages = ['react', 'core', 'assert', 'animation']
 
   packages.forEach(pkg => {
     const symlinkPath = path.join(canvasUiDir, pkg)
+    // Target should be relative to the symlinkPath
+    // From node_modules/@canvas-ui/{pkg} to node_modules/@canvas-ui/root/packages/{pkg}
     const targetPath = path.join('root', 'packages', pkg)
 
     log(`Creating symlink: ${symlinkPath} -> ${targetPath}`)
