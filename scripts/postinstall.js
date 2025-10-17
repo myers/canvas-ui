@@ -1,5 +1,5 @@
 const { execSync } = require('child_process')
-const { existsSync, appendFileSync, mkdirSync } = require('fs')
+const { existsSync, appendFileSync, mkdirSync, symlinkSync, rmSync } = require('fs')
 const path = require('path')
 
 // Setup logging
@@ -16,6 +16,40 @@ function log(message) {
     appendFileSync(logFile, logLine)
   } catch (e) {}
   console.log(message)
+}
+
+function createPackageSymlinks() {
+  log('Creating symlinks for Canvas-UI packages...')
+
+  // We're in node_modules/@canvas-ui/root
+  // Need to create symlinks in node_modules/@canvas-ui/
+  const canvasUiDir = path.resolve(cwd, '..')
+  const packages = ['react', 'core', 'assert', 'animation']
+
+  packages.forEach(pkg => {
+    const symlinkPath = path.join(canvasUiDir, pkg)
+    const targetPath = path.join('root', 'packages', pkg)
+
+    log(`Creating symlink: ${symlinkPath} -> ${targetPath}`)
+
+    try {
+      // Remove existing symlink or directory if it exists
+      if (existsSync(symlinkPath)) {
+        log(`Removing existing symlink/directory: ${symlinkPath}`)
+        rmSync(symlinkPath, { recursive: true, force: true })
+      }
+
+      // Create symlink (use 'junction' on Windows, 'dir' on Unix)
+      const symlinkType = process.platform === 'win32' ? 'junction' : 'dir'
+      symlinkSync(targetPath, symlinkPath, symlinkType)
+      log(`Successfully created symlink for @canvas-ui/${pkg}`)
+    } catch (e) {
+      log(`Failed to create symlink for @canvas-ui/${pkg}: ${e.message}`)
+      console.error(`Failed to create symlink for @canvas-ui/${pkg}:`, e.message)
+    }
+  })
+
+  log('Symlink creation completed')
 }
 
 log('=== Postinstall script started ===')
@@ -41,11 +75,17 @@ const cwd = process.cwd()
 const isPnpmStoreTmp = /[/\\]pnpm[/\\]store[/\\]v\d+[/\\]tmp[/\\]/.test(cwd)
 log(`Is pnpm store tmp: ${isPnpmStoreTmp}`)
 
+// Also detect git install from GitHub URL pattern in pnpm node_modules path
+// Example: node_modules/.pnpm/@canvas-ui+root@https+++codeload.github.com+...
+const hasGitHubUrl = /codeload\.github\.com|github\.com.*\.tar\.gz/.test(cwd)
+log(`Has GitHub URL in path: ${hasGitHubUrl}`)
+
 const isGitInstall =
   lifecycleEvent === 'npm-install' ||
   lifecycleEvent === 'yarn-install' ||
   lifecycleEvent === 'pnpm-install' ||
-  isPnpmStoreTmp
+  isPnpmStoreTmp ||
+  hasGitHubUrl
 log(`Is git install: ${isGitInstall}`)
 
 // Skip if already installed in node_modules (build already completed)
@@ -57,6 +97,10 @@ if (inNodeModules) {
   log(`Dist path: ${distPath}`)
   log(`Already built: ${isAlreadyBuilt}`)
   if (isAlreadyBuilt) {
+    // Build is complete, but we need to create symlinks for git installs
+    if (isGitInstall) {
+      createPackageSymlinks()
+    }
     log('Skipping: Already built in node_modules')
     process.exit(0)
   }
