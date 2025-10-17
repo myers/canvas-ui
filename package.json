@@ -12,7 +12,7 @@
     "build:api": "pnpm build && mkdir -p docs/api && typedoc --exclude \"dist/\" --out docs/api --entryPointStrategy packages .",
     "lint": "eslint --cache packages/core/src packages/react/src",
     "test": "jest",
-    "postinstall": "node scripts/postinstall.js",
+    "preinstall": "node scripts/preinstall.js",
     "prepare": "husky install"
   },
   "devDependencies": {
@@ -53,17 +53,5 @@
     "tslib": "^2.8.1",
     "typedoc": "^0.28.3",
     "typescript": "^5.7.3"
-  },
-  "dependencies": {
-    "immer": "^10.1.1",
-    "rxjs": "^7.8.2",
-    "@mapbox/shelf-pack": "^3.2.0",
-    "@types/mapbox__shelf-pack": "^3.0.0",
-    "@types/react-reconciler": "0.32.0",
-    "csstype": "3.0.8",
-    "eventemitter3": "5.0.1",
-    "react-reconciler": "0.32.0",
-    "react-use-measure": "2.1.7",
-    "yoga-layout-prebuilt-fork": "^1.10.6"
   }
 }
