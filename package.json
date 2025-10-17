@@ -1,5 +1,5 @@
 {
-  "name": "root",
+  "name": "@canvas-ui/root",
   "private": true,
   "scripts": {
     "distclean": "rimraf \"{packages,out}/*/{.tsbuildinfo,dist}\"",
