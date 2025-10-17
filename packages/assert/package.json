@@ -15,6 +15,7 @@
   "scripts": {
     "test": "echo \"Error: run tests from root\" && exit 1",
     "dev": "tsc --watch",
-    "build": "tsc"
+    "build": "tsc",
+    "prepare": "node ../../scripts/prepare-package.js"
   }
 }

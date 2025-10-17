@@ -12,6 +12,7 @@
     "build:api": "pnpm build && mkdir -p docs/api && typedoc --exclude \"dist/\" --out docs/api --entryPointStrategy packages .",
     "lint": "eslint --cache packages/core/src packages/react/src",
     "test": "jest",
+    "postinstall": "node scripts/postinstall.js",
     "prepare": "husky install"
   },
   "devDependencies": {
