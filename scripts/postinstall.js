@@ -95,7 +95,15 @@ function main() {
   // Build packages
   log('Building Canvas-UI for GitHub installation...')
   try {
-    execSync('sh ./tools/build.sh', { stdio: 'inherit' })
+    // Clean dist directories (use rm instead of pnpm distclean to avoid dependency on rimraf)
+    execSync('rm -rf packages/*/dist packages/*/.tsbuildinfo out/*/dist out/*/.tsbuildinfo', { stdio: 'inherit' })
+
+    // Build packages
+    execSync('pnpm --filter "@canvas-ui/*" --filter "!@canvas-ui/docs" run --stream build', { stdio: 'inherit' })
+
+    // Build root bundle
+    execSync('NODE_OPTIONS=--max_old_space_size=4096 rollup -c', { stdio: 'inherit' })
+
     log('✓ Build completed successfully')
   } catch (e) {
     log(`Build failed: ${e.message}`)
