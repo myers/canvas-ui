@@ -1,5 +1,6 @@
 const { execSync } = require('child_process')
 const { existsSync } = require('fs')
+const path = require('path')
 
 // Skip if explicitly disabled
 if (process.env.SKIP_BUILD === '1' || process.env.SKIP_POSTINSTALL === '1') {
@@ -21,6 +22,14 @@ const isGitInstall =
   lifecycleEvent === 'yarn-install' ||
   lifecycleEvent === 'pnpm-install' ||
   isPnpmStoreTmp
+
+// Skip if already installed in node_modules (build already completed)
+if (cwd.includes('node_modules')) {
+  const isAlreadyBuilt = existsSync(path.join(cwd, 'packages/core/dist'))
+  if (isAlreadyBuilt) {
+    process.exit(0)
+  }
+}
 
 // Skip if installed as sub-dependency in local development
 // (Don't skip for git installs - the ../../package.json would be the consuming project)
