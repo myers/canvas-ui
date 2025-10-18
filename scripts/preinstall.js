@@ -109,17 +109,12 @@ function main() {
     devDependencies: {
       ...originalPkg.devDependencies,
       ...devDependencies
-    },
-    scripts: {
-      ...originalPkg.scripts,
-      postinstall: 'node scripts/postinstall.js'
     }
   }
 
   // Write modified package.json
   writeFileSync(pkgPath, JSON.stringify(modifiedPkg, null, 2), 'utf-8')
   log('Modified package.json written')
-  log(`Added postinstall script: ${modifiedPkg.scripts.postinstall}`)
 }
 
 main()
