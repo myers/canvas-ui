@@ -6,6 +6,12 @@ function log(message) {
   console.log(`[postinstall] ${message}`)
 }
 
+function isInTmpDirectory() {
+  const cwd = process.cwd()
+  // pnpm prepares git deps in store tmp directory
+  return /[/\\]pnpm[/\\]store[/\\]v\d+[/\\]tmp[/\\]/.test(cwd)
+}
+
 function createPackageSymlinks() {
   log('Creating symlinks for Canvas-UI packages...')
 
@@ -83,7 +89,7 @@ function restoreOriginalPackageJson() {
 }
 
 function main() {
-  log('=== Postinstall script started (git install) ===')
+  log('=== Postinstall script started ===')
   log(`CWD: ${process.cwd()}`)
 
   // Skip if explicitly disabled
@@ -92,29 +98,38 @@ function main() {
     process.exit(0)
   }
 
-  // Build packages
-  log('Building Canvas-UI for GitHub installation...')
-  try {
-    // Clean dist directories (use rm instead of pnpm distclean to avoid dependency on rimraf)
-    execSync('rm -rf packages/*/dist packages/*/.tsbuildinfo out/*/dist out/*/.tsbuildinfo', { stdio: 'inherit' })
+  const inTmpDir = isInTmpDirectory()
+  log(`In tmp directory: ${inTmpDir}`)
 
-    // Build packages
-    execSync('pnpm --filter "@canvas-ui/*" --filter "!@canvas-ui/docs" run --stream build', { stdio: 'inherit' })
+  // Only build in tmp directory (where dependencies are available)
+  if (inTmpDir) {
+    log('Building Canvas-UI in tmp directory (dependencies available)...')
+    try {
+      // Clean dist directories (use rm instead of pnpm distclean to avoid dependency on rimraf)
+      execSync('rm -rf packages/*/dist packages/*/.tsbuildinfo out/*/dist out/*/.tsbuildinfo', { stdio: 'inherit' })
 
-    // Build root bundle
-    execSync('NODE_OPTIONS=--max_old_space_size=4096 rollup -c', { stdio: 'inherit' })
+      // Build packages
+      execSync('pnpm --filter "@canvas-ui/*" --filter "!@canvas-ui/docs" run --stream build', { stdio: 'inherit' })
 
-    log('✓ Build completed successfully')
-  } catch (e) {
-    log(`Build failed: ${e.message}`)
-    console.error('Build failed:', e.message)
-    process.exit(1)
+      // Build root bundle
+      execSync('NODE_OPTIONS=--max_old_space_size=4096 rollup -c', { stdio: 'inherit' })
+
+      log('✓ Build completed successfully')
+    } catch (e) {
+      log(`Build failed: ${e.message}`)
+      console.error('Build failed:', e.message)
+      process.exit(1)
+    }
+  } else {
+    log('Skipping build in final location (dependencies not available)')
   }
 
-  // Create symlinks
-  createPackageSymlinks()
+  // Create symlinks (only needed in final location, but safe to run in both)
+  if (!inTmpDir) {
+    createPackageSymlinks()
+  }
 
-  // Restore original package.json
+  // Restore original package.json (if backup exists)
   restoreOriginalPackageJson()
 
   log('=== Postinstall script completed ===')

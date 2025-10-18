@@ -5,6 +5,12 @@ function log(message) {
   console.log(`[preinstall] ${message}`)
 }
 
+function isInTmpDirectory() {
+  const cwd = process.cwd()
+  // pnpm prepares git deps in store tmp directory
+  return /[/\\]pnpm[/\\]store[/\\]v\d+[/\\]tmp[/\\]/.test(cwd)
+}
+
 function isGitInstall() {
   const lifecycleEvent = process.env.npm_lifecycle_event
   const cwd = process.cwd()
@@ -17,7 +23,7 @@ function isGitInstall() {
   ].includes(lifecycleEvent)
 
   // pnpm prepares git deps in store tmp directory
-  const isPnpmStoreTmp = /[/\\]pnpm[/\\]store[/\\]v\d+[/\\]tmp[/\\]/.test(cwd)
+  const isPnpmStoreTmp = isInTmpDirectory()
 
   // Detect GitHub URL in path
   const hasGitHubUrl = /codeload\.github\.com|github\.com.*\.tar\.gz/.test(cwd)
@@ -70,7 +76,14 @@ function main() {
     process.exit(0)
   }
 
-  log('Git install detected, modifying package.json...')
+  // Only modify package.json in tmp directory (first run)
+  // Skip in final node_modules location (second run)
+  if (!isInTmpDirectory()) {
+    log('Not in tmp directory (final location), skipping package.json modification')
+    process.exit(0)
+  }
+
+  log('Git install detected (in tmp directory), modifying package.json...')
 
   // Read current package.json
   const pkgPath = path.join(__dirname, '../package.json')
