@@ -169,6 +169,23 @@ export class FontProps extends NonConstructiable {
     return parseFloat(value)
   }
 
+  /**
+   * Parse line-height value, handling both unitless (multiplier) and unit-based values.
+   *
+   * - Unitless (e.g., "1.5"): multiplies by fontSize
+   * - With unit (e.g., "24px"): returns absolute pixel value
+   *
+   * This matches browser behavior for CSS line-height.
+   */
+  static parseLineHeight(lineHeight: string, fontSize: number): number {
+    // Check if unitless (just a number, possibly with decimal)
+    if (/^[\d.]+$/.test(lineHeight)) {
+      return parseFloat(lineHeight) * fontSize  // Multiplier of font size
+    }
+    // Has unit - parse as px
+    return FontProps.getLengthValue(lineHeight, 'px')
+  }
+
 }
 
 const LENGTH_PATTERN = new RegExp('([\\d\\.]+)(px|pt|pc|in|cm|mm|%|em|ex|ch|rem|q)')
