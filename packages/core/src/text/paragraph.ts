@@ -58,11 +58,14 @@ export class ParagraphStyle {
     const fontVariant = fontProps?.['font-variant'] ?? this.fontVariant ?? defaultStyle.fontVariant
     const fontWeight = fontProps?.['font-weight'] ?? this.fontWeight ?? defaultStyle.fontWeight
     const fontFamily = fontProps?.['font-family'] ?? this.fontFamily ?? defaultStyle.fontFamily
+    const font = `${fontStyle} ${fontVariant} ${fontWeight} ${fontSize} ${fontFamily}`
+
+    // Extract numeric fontSize value for line height calculations
+    const fontSizeValue = FontProps.getLengthValue(fontSize, 'px')
 
     const lineHeight = fontProps?.['line-height']
-      ? FontProps.getLengthValue(String(fontProps?.['line-height']), 'px')
-      : this.lineHeight ?? defaultStyle.lineHeight
-    const font = `${fontStyle} ${fontVariant} ${fontWeight} ${fontSize} ${fontFamily}`
+      ? FontProps.parseLineHeight(String(fontProps?.['line-height']), fontSizeValue)
+      : this.lineHeight ?? fontSizeValue * 1.2
     const color = this.color ?? defaultStyle.color
     const maxLines = typeof this.maxLines === 'number'
       ? this.maxLines
